@@ -80,7 +80,9 @@
 			startTemp: 20,
 			segments: [
 				{ id: 1, type: 'ramp', rate: 100, targetTemp: 1200 },
-				{ id: 2, type: 'hold', holdTime: 5 }
+				{ id: 2, type: 'hold', holdTime: 5 },
+				{ id: 3, type: 'ramp', rate: 50, targetTemp: 1150 },
+				{ id: 4, type: 'hold', holdTime: 30 }
 			],
 			isDefault: true
 		},
@@ -333,10 +335,16 @@
 					<Select 
 						data={[
 							{value: 'new', label: '✨ New Schedule'},
-							{value: 'separator', label: '──────────────────', disabled: true},
-							...profiles.map(p => ({
+							{value: 'separator1', label: '──────────────────', disabled: true},
+							...profiles.filter(p => !p.isDefault).map(p => ({
 								value: p.id,
-								label: `${p.name}${p.isDefault ? ' (Default)' : ''}`
+								label: p.name
+							})),
+							...(profiles.some(p => !p.isDefault) && profiles.some(p => p.isDefault) ? 
+								[{value: 'separator2', label: '──────────────────', disabled: true}] : []),
+							...profiles.filter(p => p.isDefault).map(p => ({
+								value: p.id,
+								label: `${p.name} (Default)`
 							}))
 						]}
 						value={isScheduleModified 
@@ -349,7 +357,8 @@
 								segments = [];
 								startTemp = 20;
 								currentProfile = null;
-							} else if (selectedItem?.value !== 'modified' && selectedItem?.value !== 'separator') {
+							} else if (selectedItem?.value !== 'modified' && 
+									  !selectedItem?.value?.startsWith('separator')) {
 								const profile = profiles.find(p => p.id === selectedItem?.value);
 								if (profile) loadProfile(profile);
 							}
