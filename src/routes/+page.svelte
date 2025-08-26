@@ -191,52 +191,40 @@
 			segments,
 			currentProfileId: currentProfile?.id
 		};
-		console.log('Saving schedule:', currentSchedule);
 		localStorage.setItem('currentSchedule', JSON.stringify(currentSchedule));
 	}
 
 	// Load current schedule from localStorage
 	function loadCurrentSchedule() {
-		console.log('Attempting to load schedule from localStorage...');
 		const stored = localStorage.getItem('currentSchedule');
-		console.log('Raw stored data:', stored);
 		
 		if (stored) {
 			try {
 				const schedule = JSON.parse(stored);
-				console.log('Parsed schedule:', schedule);
 				
 				if (schedule.startTemp !== undefined) {
-					console.log('Setting startTemp from storage:', schedule.startTemp);
 					startTemp = schedule.startTemp;
 				}
 				if (schedule.segments && Array.isArray(schedule.segments)) {
-					console.log('Setting segments from storage:', schedule.segments.length, 'segments');
 					segments = [...schedule.segments]; // Create new array to ensure reactivity
 				}
 				if (schedule.currentProfileId) {
-					console.log('Looking for profile with ID:', schedule.currentProfileId);
-					const profile = profiles.find(p => p.id === schedule.currentProfileId);
+						const profile = profiles.find(p => p.id === schedule.currentProfileId);
 					if (profile) {
-						console.log('Found matching profile:', profile.name);
 						currentProfile = profile;
 					} else {
-						console.log('No matching profile found, setting currentProfile to null');
 						currentProfile = null;
 					}
 				} else {
 					currentProfile = null;
 				}
 				
-				console.log('Final state after loading - StartTemp:', startTemp, 'Segments:', segments.length, 'Profile:', currentProfile?.name);
 				checkIfModified();
 				return true;
 			} catch (e) {
-				console.error('Failed to load saved schedule:', e);
 				return false;
 			}
 		}
-		console.log('No stored schedule found');
 		return false;
 	}
 
@@ -257,7 +245,6 @@
 	
 	$effect(() => {
 		if (hasInitialized) {
-			console.log('State changed, saving schedule. Segments:', segments.length, 'StartTemp:', startTemp);
 			checkIfModified();
 			saveCurrentSchedule();
 		}
@@ -265,26 +252,21 @@
 
 	// Initialize theme system and profiles
 	onMount(() => {
-		console.log('=== INITIALIZING APP ===');
 		initializeTheme();
 		
 		// Load profiles first
 		loadProfiles();
-		console.log('Profiles loaded:', profiles.length);
 		
 		// Try to load saved schedule
 		const hasLoadedSchedule = loadCurrentSchedule();
-		console.log('Schedule loaded from storage:', hasLoadedSchedule, 'Segments:', segments.length, 'Current profile:', currentProfile?.name);
 		
 		// If no saved schedule exists, load the first profile as default
 		if (!hasLoadedSchedule && profiles.length > 0) {
-			console.log('No saved schedule, loading default profile:', profiles[0].name);
 			loadProfile(profiles[0]);
 		}
 		
 		// Mark as initialized so $effect starts watching for changes
 		hasInitialized = true;
-		console.log('=== APP INITIALIZED ===');
 	});
 
 	function calculateCurveData() {
@@ -416,6 +398,8 @@
 							<svg 
 								viewBox="0 0 800 500" 
 								class="w-full h-auto border rounded min-h-[300px] lg:min-h-[400px]"
+								role="img"
+								aria-label="Firing curve chart showing temperature over time"
 								onmousemove={(e) => {
 									if (!curveData.length || maxTime === 0 || maxTemp === 0) return;
 									
