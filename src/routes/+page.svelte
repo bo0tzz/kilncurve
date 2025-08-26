@@ -152,11 +152,12 @@
 		}
 	}
 
-	// Rename profile
-	function renameProfile(profileId: string, newName: string) {
+	// Edit profile
+	function editProfile(profileId: string, newName: string, newDescription: string) {
 		const profile = profiles.find(p => p.id === profileId);
 		if (profile) {
 			profile.name = newName;
+			profile.description = newDescription;
 			profiles = [...profiles];
 			saveProfiles();
 			if (currentProfile?.id === profileId) {
@@ -172,6 +173,7 @@
 	let newProfileDescription = $state('');
 	let editingProfileId = $state<string | null>(null);
 	let editingProfileName = $state('');
+	let editingProfileDescription = $state('');
 	let isScheduleModified = $state(false);
 	
 	// Hover tooltip state
@@ -723,7 +725,7 @@
 				<Button variant="ghost" onclick={() => showSaveDialog = false}>
 					Cancel
 				</Button>
-				<Button variant="primary" onclick={handleSaveProfile}>
+				<Button variant="primary" disabled={!newProfileName.trim()} onclick={handleSaveProfile}>
 					Save Profile
 				</Button>
 			</HStack>
@@ -772,30 +774,42 @@
 							{#each profiles as profile (profile.id)}
 								<div class="flex items-center justify-between py-2 min-h-10">
 									{#if editingProfileId === profile.id}
-										<div class="flex items-center gap-2 flex-1">
+										<div class="flex flex-col gap-2 flex-1">
 											<Input
 												bind:value={editingProfileName}
 												placeholder="Profile name"
 												autofocus
 												class="flex-1"
 											/>
-											<Button
-												size="tiny"
-												variant="primary"
-												onclick={() => {
-													renameProfile(profile.id, editingProfileName);
-													editingProfileId = null;
-												}}
-											>
-												Save
-											</Button>
-											<Button
-												size="tiny"
-												variant="ghost"
-												onclick={() => editingProfileId = null}
-											>
-												Cancel
-											</Button>
+											<Input
+												bind:value={editingProfileDescription}
+												placeholder="Profile description"
+												class="flex-1"
+											/>
+											<div class="flex items-center gap-2">
+												<Button
+													size="tiny"
+													variant="primary"
+													disabled={!editingProfileName.trim()}
+													onclick={() => {
+														if (editingProfileName.trim()) {
+															editProfile(profile.id, editingProfileName.trim(), editingProfileDescription.trim());
+															editingProfileId = null;
+														}
+													}}
+												>
+													Save
+												</Button>
+												<Button
+													size="tiny"
+													variant="secondary"
+													onclick={() => {
+														editingProfileId = null;
+													}}
+												>
+													Cancel
+												</Button>
+											</div>
 										</div>
 									{:else}
 										<div class="flex-1">
@@ -814,6 +828,7 @@
 												onclick={() => {
 													editingProfileId = profile.id;
 													editingProfileName = profile.name;
+													editingProfileDescription = profile.description;
 												}}
 											>
 												Edit
