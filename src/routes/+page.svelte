@@ -694,7 +694,11 @@
 
 <!-- Save Profile Modal -->
 {#if showSaveDialog}
-	<Modal onClose={() => showSaveDialog = false}>
+	<Modal 
+		onClose={() => showSaveDialog = false}
+		closeOnBackdropClick={true}
+		closeOnEsc={true}
+	>
 		<ModalHeader>
 			<Heading level="2">Save Firing Profile</Heading>
 		</ModalHeader>
@@ -737,6 +741,7 @@
 	<Modal 
 		onClose={() => showSettingsDialog = false}
 		closeOnBackdropClick={true}
+		closeOnEsc={true}
 	>
 		<ModalHeader>
 			<div class="flex items-center justify-between w-full">
