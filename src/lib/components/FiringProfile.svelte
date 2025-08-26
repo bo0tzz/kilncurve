@@ -12,75 +12,45 @@
 
 	let { profiles, currentProfile, isScheduleModified, onProfileSelect, onSaveClick }: Props = $props();
 
-	interface SelectOption {
-		label: string;
-		value: string;
-		disabled?: boolean;
-	}
-
-	const selectData = $derived(() => {
-		const options: SelectOption[] = [];
-		
-		// New Schedule option (shows as Modified if schedule is modified)
-		options.push({
-			label: isScheduleModified ? '✏️ Modified Schedule' : '✨ New Schedule',
-			value: 'new'
-		});
-		
-		// Separator
-		options.push({ label: '──────────────────', value: 'sep1', disabled: true });
-		
-		// User profiles
-		profiles.filter(p => !p.isDefault).forEach(profile => {
-			options.push({ label: profile.name, value: profile.id });
-		});
-		
-		// Separator if both user and default profiles exist
-		if (profiles.some(p => !p.isDefault) && profiles.some(p => p.isDefault)) {
-			options.push({ label: '──────────────────', value: 'sep2', disabled: true });
-		}
-		
-		// Default profiles
-		profiles.filter(p => p.isDefault).forEach(profile => {
-			options.push({ label: `${profile.name} (Default)`, value: profile.id });
-		});
-		
-		return options;
-	});
-
-	const selectedValue = $derived(() => {
-		if (isScheduleModified) {
-			return { label: '✏️ Modified Schedule', value: 'new' };
-		} else if (currentProfile) {
-			return { 
-				label: `${currentProfile.name}${currentProfile.isDefault ? ' (Default)' : ''}`, 
-				value: currentProfile.id 
-			};
-		} else {
-			return { label: '✨ New Schedule', value: 'new' };
-		}
-	});
-
-	function handleSelectionChange(option: SelectOption) {
-		if (option.value === 'new') {
-			onProfileSelect(null);
-		} else if (!option.disabled && !option.value.startsWith('sep')) {
-			onProfileSelect(option.value);
-		}
-	}
 </script>
 
 <div class="flex items-center gap-4">
 	<Select 
-		data={selectData}
-		value={selectedValue}
-		onChange={handleSelectionChange}
-		placeholder="Select a firing profile"
+		data={[
+			{value: 'new', label: '✨ New Schedule'},
+			{value: 'separator1', label: '──────────────────', disabled: true},
+			...profiles.filter(p => !p.isDefault).map(p => ({
+				value: p.id,
+				label: p.name
+			})),
+			...(profiles.some(p => !p.isDefault) && profiles.some(p => p.isDefault) ? 
+				[{value: 'separator2', label: '──────────────────', disabled: true}] : []),
+			...profiles.filter(p => p.isDefault).map(p => ({
+				value: p.id,
+				label: `${p.name} (Default)`
+			}))
+		]}
+		value={isScheduleModified 
+			? { value: 'modified', label: '✏️ Modified Schedule' }
+			: (currentProfile ? { value: currentProfile.id, label: `${currentProfile.name}${currentProfile.isDefault ? ' (Default)' : ''}` } : { value: 'new', label: '✨ New Schedule' })
+		}
+		onChange={(selectedItem) => {
+			if (selectedItem?.value === 'new') {
+				onProfileSelect(null);
+			} else if (selectedItem?.value !== 'modified' && 
+					  !selectedItem?.value?.startsWith('separator')) {
+				onProfileSelect(selectedItem.value);
+			}
+		}}
+		placeholder="Select a firing profile..."
+		size="sm"
 		class="min-w-64"
 	/>
 	
 	{#if isScheduleModified}
 		<Button 
+			variant="primary" 
+			size="sm"
 			onclick={onSaveClick}
 			aria-label="Save current modified schedule as a new profile"
 			title="Save the current schedule as a new firing profile"
