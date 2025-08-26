@@ -173,7 +173,8 @@
 	let isScheduleModified = $state(false);
 	
 	// Hover tooltip state
-	let hoverPoint = $state<{x: number, y: number, time: number, temp: number} | null>(null);
+	let hoverPoint = $state<{x: number, y: number, svgX: number, svgY: number, time: number, temp: number} | null>(null);
+	let containerRect = $state<{width: number, height: number}>({width: 800, height: 500});
 	
 	function handleSaveProfile() {
 		if (newProfileName.trim()) {
@@ -404,6 +405,7 @@
 									if (!curveData.length || maxTime === 0 || maxTemp === 0) return;
 									
 									const rect = e.currentTarget.getBoundingClientRect();
+									containerRect = { width: rect.width, height: rect.height };
 									const x = e.clientX - rect.left;
 									
 									// Convert screen X to SVG X coordinate
@@ -441,9 +443,15 @@
 										const pointX = 80 + (hoverTime / maxTime) * 640;
 										const pointY = 420 - (interpolatedTemp / maxTemp) * 340;
 										
+										// Convert SVG coordinates to container coordinates
+										const containerX = (pointX / 800) * rect.width;
+										const containerY = (pointY / 500) * rect.height;
+										
 										hoverPoint = {
-											x: pointX,
-											y: pointY,
+											x: containerX,
+											y: containerY,
+											svgX: pointX,
+											svgY: pointY,
 											time: hoverTime,
 											temp: interpolatedTemp
 										};
@@ -507,8 +515,8 @@
 								<!-- Hover indicator -->
 								{#if hoverPoint}
 									<circle
-										cx={hoverPoint.x}
-										cy={hoverPoint.y}
+										cx={hoverPoint.svgX}
+										cy={hoverPoint.svgY}
 										r="8"
 										fill="rgb(var(--immich-ui-primary))"
 										stroke="white"
@@ -553,9 +561,16 @@
 						
 						<!-- Floating tooltip -->
 						{#if hoverPoint}
+							{@const tooltipWidth = 110}
+							{@const isNearRightEdge = hoverPoint.x > containerRect.width * 0.75}
+							{@const isNearLeftEdge = hoverPoint.x < containerRect.width * 0.25}
+							{@const tooltipX = isNearRightEdge ? hoverPoint.x - tooltipWidth - 10 : 
+											   isNearLeftEdge ? hoverPoint.x + 10 : 
+											   hoverPoint.x - tooltipWidth / 2}
+							{@const tooltipY = Math.max(5, hoverPoint.y - 35)}
 							<div 
-								class="absolute pointer-events-none bg-gray-900 text-white text-sm px-3 py-2 rounded shadow-lg z-10"
-								style="left: {Math.max(60, Math.min(hoverPoint.x, 750))}px; top: {Math.max(10, hoverPoint.y - 50)}px; transform: translateX(-50%)"
+								class="absolute pointer-events-none bg-gray-900 text-white text-sm px-3 py-2 rounded shadow-lg z-10 whitespace-nowrap"
+								style="left: {Math.max(5, Math.min(tooltipX, containerRect.width - tooltipWidth - 5))}px; top: {tooltipY}px;"
 							>
 								{hoverPoint.time.toFixed(1)}h, {hoverPoint.temp.toFixed(0)}°C
 							</div>
