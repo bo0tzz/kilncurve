@@ -134,7 +134,7 @@
 											</span>
 										</div>
 										
-										<div class="flex gap-1">
+										<div class="flex gap-3 ml-4">
 											<Button
 												onclick={() => startEditing(profile)}
 											>
