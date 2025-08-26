@@ -43,14 +43,14 @@
 			}
 		}}
 		placeholder="Select a firing profile..."
-		size="sm"
+		size="small"
 		class="min-w-64"
 	/>
 	
 	{#if isScheduleModified}
 		<Button 
-			variant="primary" 
-			size="sm"
+			variant="filled" 
+			size="small"
 			onclick={onSaveClick}
 			aria-label="Save current modified schedule as a new profile"
 			title="Save the current schedule as a new firing profile"

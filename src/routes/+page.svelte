@@ -4,6 +4,7 @@
 		AppShell,
 		AppShellHeader,
 		IconButton,
+		Button,
 		VStack,
 		ThemeSwitcher,
 		theme,
@@ -16,6 +17,7 @@
 	import type { FiringProfile, FiringSegment } from '$lib/types.js';
 	import { calculateCurveData } from '$lib/curve-utils.js';
 	import { loadProfiles, saveProfiles, saveCurrentSchedule, loadCurrentSchedule } from '$lib/storage.js';
+	import { addNotification } from '$lib/stores/notifications.js';
 	import FiringProfileComponent from '$lib/components/FiringProfile.svelte';
 	import FiringCurve from '$lib/components/FiringCurve.svelte';
 	import FiringSchedule from '$lib/components/FiringSchedule.svelte';
@@ -31,15 +33,45 @@
 	let startTemp = $state(20);
 	let isScheduleModified = $state(false);
 	let hasInitialized = $state(false);
+	let validationError = $state<string | null>(null);
+	
+	// Debug mode - can be enabled via localStorage or URL param
+	const debugMode = $state(
+		typeof window !== 'undefined' && 
+		(localStorage.getItem('debugMode') === 'true' || 
+		 new URLSearchParams(window.location.search).has('debug'))
+	);
 
 	// Modal state
 	let showSaveDialog = $state(false);
 	let showSettingsDialog = $state(false);
 
-	// Derived values
-	let curveData = $derived(calculateCurveData(segments, startTemp));
+	// Derived values with error handling
+	let curveData = $derived.by(() => {
+		try {
+			return calculateCurveData(segments, startTemp);
+		} catch (error) {
+			// Return a safe fallback with just the start point
+			return [{ time: 0, temp: startTemp }];
+		}
+	});
 	let maxTemp = $derived(Math.max(...curveData.map(p => p.temp)));
 	let maxTime = $derived(Math.max(...curveData.map(p => p.time)));
+	
+	// Watch for changes and validate
+	$effect(() => {
+		if (hasInitialized && segments.length > 0) {
+			try {
+				calculateCurveData(segments, startTemp);
+				validationError = null;
+			} catch (error) {
+				if (error instanceof Error) {
+					validationError = error.message;
+					addNotification(error.message, 'error', 10000);
+				}
+			}
+		}
+	});
 
 	// Profile management functions
 	function loadProfile(profile: FiringProfile) {
@@ -207,6 +239,45 @@
 				/>
 				
 				<div class="flex items-center gap-3">
+					{#if debugMode}
+						<select 
+							class="text-sm px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
+							onchange={(e) => {
+								const target = e.target as HTMLSelectElement;
+								const testType = target.value;
+								
+								if (testType === '48hour') {
+									// Test error - creates a schedule that exceeds 48 hours
+									segments = [
+										{ id: 1, type: 'ramp', rate: 10, targetTemp: 1300 }, // 130 hours
+										{ id: 2, type: 'hold', holdTime: 600 }, // 10 hours hold
+										{ id: 3, type: 'ramp', rate: 50, targetTemp: 100 } // 24 hours
+									];
+									addNotification('Created test schedule that should exceed 48 hours', 'info');
+								} else if (testType === 'invalid') {
+									// Test invalid segment data
+									segments = [
+										{ id: 1, type: 'ramp', rate: -10, targetTemp: 1300 }, // Invalid rate
+									];
+									addNotification('Created test schedule with invalid rate', 'info');
+								} else if (testType === 'toast') {
+									// Test toast notifications directly
+									addNotification('This is a test error notification', 'error');
+									setTimeout(() => addNotification('This is a test warning', 'warning'), 500);
+									setTimeout(() => addNotification('This is a test success', 'success'), 1000);
+									setTimeout(() => addNotification('This is a test info', 'info'), 1500);
+								}
+								
+								// Reset the select
+								target.value = '';
+							}}
+						>
+							<option value="">Test Errors</option>
+							<option value="48hour">48-Hour Limit</option>
+							<option value="invalid">Invalid Data</option>
+							<option value="toast">Toast Test</option>
+						</select>
+					{/if}
 					<IconButton
 						icon={mdiCog}
 						size="small"

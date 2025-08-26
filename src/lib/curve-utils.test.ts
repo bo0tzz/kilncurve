@@ -60,6 +60,27 @@ describe('calculateCurveData', () => {
 		expect(result).toHaveLength(1);
 		expect(result[0]).toEqual({ time: 0, temp: 20 });
 	});
+
+	it('throws error when schedule exceeds 48 hours', () => {
+		const segments: FiringSegment[] = [
+			{ id: 1, type: 'ramp', rate: 10, targetTemp: 1300 }, // 130 hours
+		];
+		
+		expect(() => calculateCurveData(segments, 20)).toThrow('Firing schedule exceeds 48 hours');
+	});
+
+	it('throws error for invalid temperature', () => {
+		expect(() => calculateCurveData([], -10)).toThrow('Start temperature must be between 0°C and 50°C');
+		expect(() => calculateCurveData([], 60)).toThrow('Start temperature must be between 0°C and 50°C');
+	});
+
+	it('throws error for invalid ramp rate', () => {
+		const segments: FiringSegment[] = [
+			{ id: 1, type: 'ramp', rate: -10, targetTemp: 200 }
+		];
+		
+		expect(() => calculateCurveData(segments, 20)).toThrow('Invalid ramp rate at segment 1');
+	});
 });
 
 describe('getInterpolatedPoint', () => {

@@ -1,83 +1,77 @@
 import type { FiringSegment, CurvePoint } from './types.js';
 
 export function calculateCurveData(segments: FiringSegment[], startTemp: number): CurvePoint[] {
-	try {
-		// Validate inputs
-		if (!Array.isArray(segments)) {
-			throw new Error('Segments must be an array');
-		}
-		
-		if (typeof startTemp !== 'number' || isNaN(startTemp)) {
-			throw new Error('Start temperature must be a valid number');
-		}
-		
-		if (startTemp < 0 || startTemp > 50) {
-			throw new Error('Start temperature must be between 0°C and 50°C');
-		}
-
-		const points: CurvePoint[] = [];
-		let currentTime = 0;
-		let currentTemp = startTemp;
-
-		points.push({ time: 0, temp: currentTemp });
-
-		for (let i = 0; i < segments.length; i++) {
-			const segment = segments[i];
-			
-			if (!segment || typeof segment !== 'object') {
-				throw new Error(`Invalid segment at index ${i}`);
-			}
-			
-			if (segment.type === 'ramp' && segment.rate && segment.targetTemp !== undefined) {
-				if (typeof segment.rate !== 'number' || segment.rate <= 0 || segment.rate > 1000) {
-					throw new Error(`Invalid ramp rate at segment ${i + 1}: ${segment.rate}`);
-				}
-				
-				if (typeof segment.targetTemp !== 'number' || segment.targetTemp < 0 || segment.targetTemp > 1400) {
-					throw new Error(`Invalid target temperature at segment ${i + 1}: ${segment.targetTemp}`);
-				}
-				
-				const tempDifference = segment.targetTemp - currentTemp;
-				const timeToTarget = Math.abs(tempDifference) / segment.rate;
-
-				if (!isFinite(timeToTarget)) {
-					throw new Error(`Invalid time calculation at segment ${i + 1}`);
-				}
-
-				currentTime += timeToTarget;
-				currentTemp = segment.targetTemp;
-				
-				points.push({ 
-					time: currentTime, 
-					temp: currentTemp
-				});
-				
-			} else if (segment.type === 'hold' && segment.holdTime) {
-				if (typeof segment.holdTime !== 'number' || segment.holdTime < 0 || segment.holdTime > 600) {
-					throw new Error(`Invalid hold time at segment ${i + 1}: ${segment.holdTime}`);
-				}
-				
-				currentTime += segment.holdTime / 60;
-				
-				if (!isFinite(currentTime)) {
-					throw new Error(`Invalid time calculation at segment ${i + 1}`);
-				}
-				
-				points.push({ time: currentTime, temp: currentTemp });
-			}
-			
-			// Safety check for excessive firing time
-			if (currentTime > 48) {
-				throw new Error('Firing schedule exceeds 48 hours - please review your segments');
-			}
-		}
-
-		return points;
-	} catch (error) {
-		console.error('Error calculating curve data:', error);
-		// Return a safe fallback with just the start point
-		return [{ time: 0, temp: Math.max(0, Math.min(50, startTemp || 20)) }];
+	// Validate inputs
+	if (!Array.isArray(segments)) {
+		throw new Error('Segments must be an array');
 	}
+	
+	if (typeof startTemp !== 'number' || isNaN(startTemp)) {
+		throw new Error('Start temperature must be a valid number');
+	}
+	
+	if (startTemp < 0 || startTemp > 50) {
+		throw new Error('Start temperature must be between 0°C and 50°C');
+	}
+
+	const points: CurvePoint[] = [];
+	let currentTime = 0;
+	let currentTemp = startTemp;
+
+	points.push({ time: 0, temp: currentTemp });
+
+	for (let i = 0; i < segments.length; i++) {
+		const segment = segments[i];
+		
+		if (!segment || typeof segment !== 'object') {
+			throw new Error(`Invalid segment at index ${i}`);
+		}
+		
+		if (segment.type === 'ramp' && segment.rate && segment.targetTemp !== undefined) {
+			if (typeof segment.rate !== 'number' || segment.rate <= 0 || segment.rate > 1000) {
+				throw new Error(`Invalid ramp rate at segment ${i + 1}: ${segment.rate}`);
+			}
+			
+			if (typeof segment.targetTemp !== 'number' || segment.targetTemp < 0 || segment.targetTemp > 1400) {
+				throw new Error(`Invalid target temperature at segment ${i + 1}: ${segment.targetTemp}`);
+			}
+			
+			const tempDifference = segment.targetTemp - currentTemp;
+			const timeToTarget = Math.abs(tempDifference) / segment.rate;
+
+			if (!isFinite(timeToTarget)) {
+				throw new Error(`Invalid time calculation at segment ${i + 1}`);
+			}
+
+			currentTime += timeToTarget;
+			currentTemp = segment.targetTemp;
+			
+			points.push({ 
+				time: currentTime, 
+				temp: currentTemp
+			});
+			
+		} else if (segment.type === 'hold' && segment.holdTime) {
+			if (typeof segment.holdTime !== 'number' || segment.holdTime < 0 || segment.holdTime > 600) {
+				throw new Error(`Invalid hold time at segment ${i + 1}: ${segment.holdTime}`);
+			}
+			
+			currentTime += segment.holdTime / 60;
+			
+			if (!isFinite(currentTime)) {
+				throw new Error(`Invalid time calculation at segment ${i + 1}`);
+			}
+			
+			points.push({ time: currentTime, temp: currentTemp });
+		}
+		
+		// Safety check for excessive firing time
+		if (currentTime > 48) {
+			throw new Error('Firing schedule exceeds 48 hours - please review your segments');
+		}
+	}
+
+	return points;
 }
 
 export function getInterpolatedPoint(

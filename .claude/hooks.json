@@ -1,0 +1,26 @@
+{
+  "hooks": [
+    {
+      "name": "run-tests-on-ts-changes",
+      "description": "Run tests when TypeScript files are modified",
+      "trigger": "after_tool_use",
+      "tools": ["Edit", "MultiEdit", "Write"],
+      "conditions": {
+        "file_patterns": ["**/*.ts", "**/*.svelte"]
+      },
+      "command": "npm test -- --run --reporter=verbose 2>&1 | head -50",
+      "output_mode": "on_failure"
+    },
+    {
+      "name": "check-types-on-changes",
+      "description": "Check TypeScript types when files are modified",
+      "trigger": "after_tool_use", 
+      "tools": ["Edit", "MultiEdit", "Write"],
+      "conditions": {
+        "file_patterns": ["**/*.ts", "**/*.svelte"]
+      },
+      "command": "npm run check 2>&1 | grep -E '(Error:|Warning:|found [0-9]+ errors)' | head -20",
+      "output_mode": "on_failure"
+    }
+  ]
+}
