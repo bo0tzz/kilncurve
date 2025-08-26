@@ -54,7 +54,7 @@
 		{
 			id: 'bisque',
 			name: 'Standard Bisque',
-			description: 'Simple bisque firing - 120°C/h to 950°C + 10min hold',
+			description: 'Simple bisque firing - 950°C',
 			startTemp: 20,
 			segments: [
 				{ id: 1, type: 'ramp', rate: 120, targetTemp: 950 },
@@ -612,7 +612,6 @@
 				<CardBody>
 					<VStack gap="6">
 						<VStack gap="4">
-							<Heading level="3">Firing Segments</Heading>
 							{#each segments as segment (segment.id)}
 								<Card variant="outlined">
 									<CardHeader>
@@ -677,10 +676,10 @@
 							{/each}
 							
 							<HStack gap="2">
-								<Button variant="primary" onclick={addRampSegment}>
+								<Button color="primary" onclick={addRampSegment}>
 									🔥 Add Ramp
 								</Button>
-								<Button variant="secondary" onclick={addHoldSegment}>
+								<Button color="secondary" onclick={addHoldSegment}>
 									⏱️ Add Hold
 								</Button>
 							</HStack>
