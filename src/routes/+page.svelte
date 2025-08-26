@@ -734,7 +734,10 @@
 
 <!-- Settings Modal -->
 {#if showSettingsDialog}
-	<Modal onClose={() => showSettingsDialog = false}>
+	<Modal 
+		onClose={() => showSettingsDialog = false}
+		closeOnBackdropClick={true}
+	>
 		<ModalHeader>
 			<div class="flex items-center justify-between w-full">
 				<Heading level="2">Settings</Heading>
