@@ -1,4 +1,5 @@
 import type { FiringProfile, FiringSegment } from './types.js';
+import type { KilnPreset } from './kiln-presets.js';
 import { defaultProfiles } from './profiles.js';
 import { isValidFiringProfileArray, isValidSavedSchedule, sanitizeFiringProfile, type SavedSchedule } from './schema.js';
 import { addNotification } from './stores/notifications.js';
@@ -93,4 +94,64 @@ export function loadCurrentSchedule(): SavedSchedule | null {
 		}
 	}
 	return null;
+}
+
+function generateUniqueId(): string {
+	// Use crypto.randomUUID if available, fallback to timestamp + random
+	if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+		return `custom-${crypto.randomUUID()}`;
+	} else {
+		// Fallback for environments without crypto.randomUUID
+		const timestamp = Date.now();
+		const random = Math.random().toString(36).substring(2, 15);
+		return `custom-${timestamp}-${random}`;
+	}
+}
+
+export function loadCustomKilns(): KilnPreset[] {
+	try {
+		const stored = localStorage.getItem('customKilns');
+		if (stored) {
+			const parsed = JSON.parse(stored);
+			// Basic validation - ensure it's an array
+			if (Array.isArray(parsed)) {
+				return parsed.filter(kiln => 
+					kiln && 
+					typeof kiln.id === 'string' && 
+					typeof kiln.name === 'string' &&
+					typeof kiln.defaultK === 'number' &&
+					Array.isArray(kiln.kRange)
+				);
+			}
+		}
+	} catch (error) {
+		console.warn('Failed to load custom kilns from localStorage:', error);
+		addNotification('Failed to load custom kiln types', 'error');
+	}
+	return [];
+}
+
+export function saveCustomKilns(kilns: KilnPreset[]): void {
+	try {
+		localStorage.setItem('customKilns', JSON.stringify(kilns));
+	} catch (error) {
+		console.error('Failed to save custom kilns to localStorage:', error);
+		addNotification('Failed to save custom kiln types', 'error');
+	}
+}
+
+export function addCustomKiln(name: string, description: string, coolingCoefficient: number): KilnPreset {
+	const newKiln: KilnPreset = {
+		id: generateUniqueId(),
+		name: name.trim(),
+		description: description.trim(),
+		defaultK: coolingCoefficient,
+		kRange: [coolingCoefficient * 0.8, coolingCoefficient * 1.2]
+	};
+	
+	const existingKilns = loadCustomKilns();
+	const updatedKilns = [...existingKilns, newKiln];
+	saveCustomKilns(updatedKilns);
+	
+	return newKiln;
 }

@@ -61,12 +61,78 @@ describe('calculateCurveData', () => {
 		expect(result[0]).toEqual({ time: 0, temp: 20 });
 	});
 
-	it('throws error when schedule exceeds 48 hours', () => {
+	it('handles cooldown segment with custom coefficient', () => {
+		const segments: FiringSegment[] = [
+			{ id: 1, type: 'ramp', rate: 100, targetTemp: 600 },
+			{ id: 2, type: 'cooldown', coolingCoefficient: 0.26, ambientTemp: 20, stopTemp: 40 }
+		];
+		const result = calculateCurveData(segments, 20);
+		
+		expect(result.length).toBeGreaterThan(2);
+		expect(result[result.length - 1].temp).toBeLessThanOrEqual(40);
+	});
+
+	it('handles cooldown segment with kiln preset', () => {
+		const segments: FiringSegment[] = [
+			{ id: 1, type: 'ramp', rate: 100, targetTemp: 800 },
+			{ 
+				id: 2, 
+				type: 'cooldown', 
+				kilnPreset: 'small-hobby-brick-thin',
+				coolingSpeed: 'normal',
+				ambientTemp: 20, 
+				stopTemp: 50 
+			}
+		];
+		const result = calculateCurveData(segments, 20);
+		
+		expect(result.length).toBeGreaterThan(2);
+		
+		// Check cooling happens
+		const peakTemp = result[1].temp;
+		const lastTemp = result[result.length - 1].temp;
+		expect(lastTemp).toBeLessThan(peakTemp);
+		expect(lastTemp).toBeLessThanOrEqual(50);
+	});
+
+	it('handles different cooling speeds', () => {
+		const baseSegments: FiringSegment[] = [
+			{ id: 1, type: 'ramp', rate: 100, targetTemp: 500 }
+		];
+		
+		const slowCooldown: FiringSegment = { 
+			id: 2, 
+			type: 'cooldown', 
+			kilnPreset: 'small-hobby-brick-thin',
+			coolingSpeed: 'slow',
+			ambientTemp: 20, 
+			stopTemp: 50 
+		};
+		
+		const fastCooldown: FiringSegment = { 
+			id: 2, 
+			type: 'cooldown', 
+			kilnPreset: 'small-hobby-brick-thin',
+			coolingSpeed: 'fast',
+			ambientTemp: 20, 
+			stopTemp: 50 
+		};
+		
+		const slowResult = calculateCurveData([...baseSegments, slowCooldown], 20);
+		const fastResult = calculateCurveData([...baseSegments, fastCooldown], 20);
+		
+		// Fast cooling should complete in less time
+		const slowTime = slowResult[slowResult.length - 1].time;
+		const fastTime = fastResult[fastResult.length - 1].time;
+		expect(fastTime).toBeLessThan(slowTime);
+	});
+
+	it('throws error when schedule exceeds 72 hours', () => {
 		const segments: FiringSegment[] = [
 			{ id: 1, type: 'ramp', rate: 10, targetTemp: 1300 }, // 130 hours
 		];
 		
-		expect(() => calculateCurveData(segments, 20)).toThrow('Firing schedule exceeds 48 hours');
+		expect(() => calculateCurveData(segments, 20)).toThrow('Firing schedule exceeds 72 hours');
 	});
 
 	it('throws error for invalid temperature', () => {
