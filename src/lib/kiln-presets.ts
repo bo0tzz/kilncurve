@@ -78,10 +78,19 @@ export const KILN_PRESETS: KilnPreset[] = [
 ];
 
 export function getAllKilns(): KilnPreset[] {
-	// Get custom kilns from localStorage
+	// Get custom kilns from localStorage directly to avoid circular dependency
 	if (typeof window !== 'undefined') {
-		const customKilns = JSON.parse(localStorage.getItem('customKilns') || '[]');
-		return [...KILN_PRESETS, ...customKilns];
+		try {
+			const stored = localStorage.getItem('customKilns');
+			if (stored) {
+				const customKilns = JSON.parse(stored);
+				if (Array.isArray(customKilns)) {
+					return [...KILN_PRESETS, ...customKilns];
+				}
+			}
+		} catch (error) {
+			console.warn('Failed to load custom kilns:', error);
+		}
 	}
 	return KILN_PRESETS;
 }

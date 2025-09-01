@@ -19,6 +19,7 @@
 	import type { FiringProfile } from '../types.js';
 	import { validateStartTemp, validateProfileName, validateProfileDescription } from '../validation.js';
 	import { KILN_PRESETS, getCoolingCoefficient } from '../kiln-presets.js';
+	import { loadCustomKilns, addCustomKiln } from '../storage.js';
 
 	interface Props {
 		show: boolean;
@@ -55,7 +56,7 @@
 	// Load custom kilns
 	$effect(() => {
 		if (typeof window !== 'undefined') {
-			customKilns = JSON.parse(localStorage.getItem('customKilns') || '[]');
+			customKilns = loadCustomKilns();
 		}
 	});
 
@@ -99,20 +100,15 @@
 
 	function saveCustomKiln() {
 		if (customKilnName.trim()) {
-			// Create new kiln
-			const newKiln = {
-				id: `custom-${Date.now()}`,
-				name: customKilnName.trim(),
-				description: customKilnDescription.trim(),
-				defaultK: cooldownSettings.coolingCoefficient || 0.15,
-				kRange: [(cooldownSettings.coolingCoefficient || 0.15) * 0.8, (cooldownSettings.coolingCoefficient || 0.15) * 1.2]
-			};
+			// Create new kiln using centralized storage
+			const newKiln = addCustomKiln(
+				customKilnName.trim(),
+				customKilnDescription.trim(),
+				cooldownSettings.coolingCoefficient || 0.15
+			);
 			
-			// Update local state first
+			// Update local state
 			customKilns = [...customKilns, newKiln];
-			
-			// Save to localStorage
-			localStorage.setItem('customKilns', JSON.stringify(customKilns));
 			
 			// Clear form
 			customKilnName = '';
