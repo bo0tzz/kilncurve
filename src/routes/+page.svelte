@@ -35,6 +35,15 @@
 	let hasInitialized = $state(false);
 	let validationError = $state<string | null>(null);
 	
+	// Cooldown settings (stored in localStorage)
+	let cooldownSettings = $state({
+		kilnPreset: 'small-hobby-brick-thin',
+		coolingSpeed: 'normal' as 'slow' | 'normal' | 'fast',
+		coolingCoefficient: undefined as number | undefined,
+		ambientTemp: 20,
+		stopTemp: 50
+	});
+	
 	// Debug mode - can be enabled via localStorage or URL param
 	const debugMode = $state(
 		typeof window !== 'undefined' && 
@@ -48,8 +57,22 @@
 
 	// Derived values with error handling
 	let curveData = $derived.by(() => {
+		// Always add implicit cooldown segment at the end
+		const segmentsWithCooldown = [...segments];
+		if (segments.length > 0 && !segments.some(s => s.type === 'cooldown')) {
+			segmentsWithCooldown.push({
+				id: -1, // Special ID for implicit cooldown
+				type: 'cooldown',
+				kilnPreset: cooldownSettings.kilnPreset,
+				coolingSpeed: cooldownSettings.coolingSpeed,
+				coolingCoefficient: cooldownSettings.coolingCoefficient,
+				ambientTemp: cooldownSettings.ambientTemp,
+				stopTemp: cooldownSettings.stopTemp
+			});
+		}
+		
 		try {
-			return calculateCurveData(segments, startTemp);
+			return calculateCurveData(segmentsWithCooldown, startTemp);
 		} catch (error) {
 			// Return a safe fallback with just the start point
 			return [{ time: 0, temp: startTemp }];
@@ -112,6 +135,11 @@
 			// Profile deletion failed, restore if possible
 			profiles = loadProfiles();
 		}
+	}
+
+	function handleCooldownSettingsChange(newSettings: typeof cooldownSettings) {
+		cooldownSettings = newSettings;
+		localStorage.setItem('cooldownSettings', JSON.stringify(newSettings));
 	}
 
 	function editProfile(profileId: string, newName: string, newDescription: string) {
@@ -196,6 +224,16 @@
 	onMount(() => {
 		try {
 			initializeTheme();
+			
+			// Load cooldown settings from localStorage
+			const savedCooldown = localStorage.getItem('cooldownSettings');
+			if (savedCooldown) {
+				try {
+					cooldownSettings = JSON.parse(savedCooldown);
+				} catch (e) {
+					console.error('Failed to load cooldown settings:', e);
+				}
+			}
 			
 			// Load profiles first
 			profiles = loadProfiles();
@@ -300,6 +338,7 @@
 						{curveData}
 						{maxTemp}
 						{maxTime}
+						{segments}
 					/>
 				</ErrorBoundary>
 
@@ -327,8 +366,10 @@
 	show={showSettingsDialog}
 	{startTemp}
 	{profiles}
+	{cooldownSettings}
 	onClose={() => showSettingsDialog = false}
 	onStartTempChange={(temp) => startTemp = temp}
+	onCooldownSettingsChange={handleCooldownSettingsChange}
 	onEditProfile={editProfile}
 	onDeleteProfile={deleteProfile}
 />

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Card, CardHeader, CardTitle, CardBody, VStack, HStack, Text } from '@immich/ui';
-	import type { CurvePoint, HoverPoint } from '../types.js';
+	import type { CurvePoint, HoverPoint, FiringSegment } from '../types.js';
 	import { getInterpolatedPoint } from '../curve-utils.js';
 	import { throttle } from '../utils.js';
 
@@ -8,9 +8,46 @@
 		curveData: CurvePoint[];
 		maxTemp: number;
 		maxTime: number;
+		segments?: FiringSegment[];
 	}
 
-	let { curveData, maxTemp, maxTime }: Props = $props();
+	let { curveData, maxTemp, maxTime, segments = [] }: Props = $props();
+	
+	// Find where cooldown starts (first cooldown segment)
+	const cooldownStartIndex = $derived.by(() => {
+		let cumulativeSegments = 0;
+		for (let i = 0; i < segments.length; i++) {
+			if (segments[i].type === 'cooldown') {
+				// Count how many curve points come before this segment
+				// This is approximate - we need the actual curve data index
+				return cumulativeSegments;
+			}
+			cumulativeSegments++;
+		}
+		return -1;
+	});
+	
+	// Find the time when cooldown starts
+	const cooldownStartTime = $derived.by(() => {
+		// Since cooldown is implicit, it always exists if we have segments
+		if (segments.length === 0 || curveData.length === 0) return -1;
+		
+		// Count the number of points that belong to the firing segments
+		// Each ramp adds 1 point, each hold adds 1 point
+		let firingPointCount = 1; // Starting point
+		for (const segment of segments) {
+			if (segment.type === 'ramp' || segment.type === 'hold') {
+				firingPointCount++;
+			}
+		}
+		
+		// The cooldown starts at the point after all firing segments
+		if (firingPointCount < curveData.length) {
+			return curveData[firingPointCount - 1].time;
+		}
+		
+		return -1;
+	});
 
 	let hoverPoint = $state<HoverPoint | null>(null);
 	let containerRect = $state<{width: number, height: number}>({width: 800, height: 500});
@@ -110,25 +147,88 @@
 
 					<!-- Temperature curve -->
 					{#if curveData.length > 1}
-						<polyline
-							points={curveData.map(point => {
-								const x = 80 + (point.time / maxTime) * 640;
-								const y = 420 - (point.temp / maxTemp) * 340;
-								return `${x},${y}`;
-							}).join(' ')}
-							fill="none"
-							stroke="rgb(var(--immich-ui-primary))"
-							stroke-width="4"
-						/>
-						
-						<!-- Data points -->
-						{#each curveData as point}
-							<circle
-								cx={80 + (point.time / maxTime) * 640}
-								cy={420 - (point.temp / maxTemp) * 340}
-								r="6"
-								fill="rgb(var(--immich-ui-primary))"
+						{#if cooldownStartTime > 0}
+							<!-- Heating phase curve -->
+							<polyline
+								points={curveData.filter(p => p.time <= cooldownStartTime).map(point => {
+									const x = 80 + (point.time / maxTime) * 640;
+									const y = 420 - (point.temp / maxTemp) * 340;
+									return `${x},${y}`;
+								}).join(' ')}
+								fill="none"
+								stroke="rgb(var(--immich-ui-primary))"
+								stroke-width="4"
 							/>
+							
+							<!-- Cooldown phase curve - thinner solid line -->
+							<polyline
+								points={curveData.filter(p => p.time >= cooldownStartTime).map(point => {
+									const x = 80 + (point.time / maxTime) * 640;
+									const y = 420 - (point.temp / maxTemp) * 340;
+									return `${x},${y}`;
+								}).join(' ')}
+								fill="none"
+								stroke="rgb(59, 130, 246)"
+								stroke-width="2"
+								opacity="0.8"
+							/>
+							
+							<!-- Transition marker at cooldown start -->
+							{@const transitionPoint = curveData.find(p => p.time >= cooldownStartTime)}
+							{#if transitionPoint}
+								{@const transX = 80 + (transitionPoint.time / maxTime) * 640}
+								{@const transY = 420 - (transitionPoint.temp / maxTemp) * 340}
+								<line
+									x1={transX}
+									y1={transY - 10}
+									x2={transX}
+									y2={transY + 10}
+									stroke="rgb(59, 130, 246)"
+									stroke-width="2"
+									opacity="0.5"
+								/>
+								<circle
+									cx={transX}
+									cy={transY}
+									r="8"
+									fill="white"
+									stroke="rgb(59, 130, 246)"
+									stroke-width="2"
+								/>
+								<text
+									x={transX}
+									y={transY - 15}
+									text-anchor="middle"
+									fill="rgb(59, 130, 246)"
+									class="text-xs font-medium"
+								>
+									End of Firing
+								</text>
+							{/if}
+						{:else}
+							<!-- No cooldown - single curve -->
+							<polyline
+								points={curveData.map(point => {
+									const x = 80 + (point.time / maxTime) * 640;
+									const y = 420 - (point.temp / maxTemp) * 340;
+									return `${x},${y}`;
+								}).join(' ')}
+								fill="none"
+								stroke="rgb(var(--immich-ui-primary))"
+								stroke-width="4"
+							/>
+						{/if}
+						
+						<!-- Data points - only for heating phase -->
+						{#each curveData as point}
+							{#if cooldownStartTime < 0 || point.time <= cooldownStartTime}
+								<circle
+									cx={80 + (point.time / maxTime) * 640}
+									cy={420 - (point.temp / maxTemp) * 340}
+									r="6"
+									fill="rgb(var(--immich-ui-primary))"
+								/>
+							{/if}
 						{/each}
 						
 						<!-- Hover indicator -->

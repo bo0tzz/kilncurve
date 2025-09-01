@@ -1,4 +1,5 @@
 import type { FiringSegment, CurvePoint } from './types.js';
+import { getCoolingCoefficient } from './kiln-presets.js';
 
 export function calculateCurveData(segments: FiringSegment[], startTemp: number): CurvePoint[] {
 	// Validate inputs
@@ -63,14 +64,97 @@ export function calculateCurveData(segments: FiringSegment[], startTemp: number)
 			}
 			
 			points.push({ time: currentTime, temp: currentTemp });
+		} else if (segment.type === 'cooldown') {
+			// Natural cooling using Newton's Law of Cooling
+			const ambientTemp = segment.ambientTemp ?? 20;
+			const stopTemp = segment.stopTemp ?? 50;
+			
+			// Get cooling coefficient - custom value takes precedence
+			const k = getCoolingCoefficient(
+				segment.kilnPreset || 'small-hobby-brick-thin',
+				segment.coolingSpeed,
+				segment.coolingCoefficient
+			);
+			
+			// Validate cooling parameters
+			if (k <= 0 || k > 1) {
+				throw new Error(`Invalid cooling coefficient at segment ${i + 1}: ${k}`);
+			}
+			
+			if (stopTemp < 0 || stopTemp > currentTemp) {
+				throw new Error(`Invalid stop temperature at segment ${i + 1}: ${stopTemp}`);
+			}
+			
+			// Calculate cooling curve points
+			const coolingPoints = calculateCoolingCurve(
+				currentTemp,
+				ambientTemp,
+				stopTemp,
+				k,
+				currentTime
+			);
+			
+			// Add all cooling points except the first (which duplicates current position)
+			for (let j = 1; j < coolingPoints.length; j++) {
+				points.push(coolingPoints[j]);
+				currentTime = coolingPoints[j].time;
+			}
+			
+			currentTemp = stopTemp;
 		}
 		
-		// Safety check for excessive firing time
-		if (currentTime > 48) {
-			throw new Error('Firing schedule exceeds 48 hours - please review your segments');
+		// Safety check for excessive firing time (extended to 72 hours to accommodate cooldown)
+		if (currentTime > 72) {
+			throw new Error('Firing schedule exceeds 72 hours - please review your segments');
 		}
 	}
 
+	return points;
+}
+
+function calculateCoolingCurve(
+	startTemp: number,
+	ambientTemp: number,
+	stopTemp: number,
+	k: number,
+	startTime: number
+): CurvePoint[] {
+	const points: CurvePoint[] = [];
+	// Use larger time step for fewer points - 30 minutes instead of 6 minutes
+	const timeStep = 0.5; // hours (30 minutes)
+	
+	let currentTemp = startTemp;
+	let currentTime = startTime;
+	
+	// Add initial point
+	points.push({ time: currentTime, temp: currentTemp });
+	
+	// Calculate cooling using Newton's Law: T(t) = T_ambient + (T_initial - T_ambient) * e^(-kt)
+	while (currentTemp > stopTemp) {
+		const tempDiff = currentTemp - ambientTemp;
+		currentTemp = ambientTemp + tempDiff * Math.exp(-k * timeStep);
+		currentTime += timeStep;
+		
+		// Add point every time step
+		points.push({ time: currentTime, temp: currentTemp });
+		
+		// Safety check to prevent infinite loops
+		if (currentTime - startTime > 48) {
+			// If cooling takes more than 48 hours, stop here
+			// Don't force to stopTemp as that creates an artificial drop
+			break;
+		}
+	}
+	
+	// Only adjust to stopTemp if we're very close (within 1 degree)
+	// This prevents artificial vertical drops
+	if (points.length > 0) {
+		const lastPoint = points[points.length - 1];
+		if (Math.abs(lastPoint.temp - stopTemp) < 1) {
+			lastPoint.temp = stopTemp;
+		}
+	}
+	
 	return points;
 }
 
