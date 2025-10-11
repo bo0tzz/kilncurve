@@ -22,7 +22,7 @@
 		"@testing-library/jest-dom": "^6.8.0",
 		"@testing-library/svelte": "^5.2.8",
 		"@testing-library/user-event": "^14.6.1",
-		"happy-dom": "^18.0.1",
+		"happy-dom": "^20.0.0",
 		"jsdom": "^26.1.0",
 		"svelte": "^5.0.0",
 		"svelte-check": "^4.0.0",
